@@ -56,6 +56,7 @@ if __name__ == "__main__":
     timeout = 360
     mtime = 0
     time_flag = ""
+    addr_list = {}
 
     optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime='])
     for opt, a in optlist:
@@ -72,4 +73,14 @@ if __name__ == "__main__":
             time_flag = "mtime"
     (qumulo, path) = args[0].split(':')
     auth = api_login(qumulo, user, password, token)
-    print(auth)
+    dprint(str(auth))
+    net_data = requests.get('https://' + qumulo + '/v2/network/interfaces/1/status/', headers=auth,
+                            verify=False, timeout=timeout)
+    dprint(net_data.content)
+    net_info = json.loads(net_data.content.decode('utf-8'))
+    for node in net_info:
+        if node['interface_details']['cable_status'] == "CONNECTED" and node['interface_details'][
+            'interface_status'] == "UP":
+            for ints in node['network_statuses']:
+                addr_list[node['node_name']] = ints['address']
+    print(addr_list)
