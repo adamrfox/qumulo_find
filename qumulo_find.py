@@ -68,7 +68,7 @@ def auth_refresh(qumulo, user, password, token, refresh):
         auth = new_header
 
 def qumulo_get(addr, api):
-    print("API_GET: " + api)
+    dprint("API_GET: " + api)
     res= requests.get('https://' + addr + '/api' + api, headers=auth, verify=False, timeout=timeout)
     if res.status_code == 200:
         results = json.loads(res.content.decode('utf-8'))
@@ -241,7 +241,7 @@ if __name__ == "__main__":
                     shutil.copyfileobj(rfh, ofh)
             rfh.close()
             ofh.close()
-            os.remove(fnmae)
+            os.remove(fname)
     print("Done!")
 
 
