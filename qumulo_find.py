@@ -142,6 +142,12 @@ def walk_tree(addr_list, job, time_flag, time_limit):
         parts_queue.put('.' + fpath + '.part')
     running_threads.remove(th_name)
 
+def log_clean():
+    files = os.listdir('.')
+    for f in files:
+        if f.startswith('._') and f.endswith('.part'):
+            os.remove(f)
+
 
 if __name__ == "__main__":
     DEBUG = False
@@ -184,6 +190,7 @@ if __name__ == "__main__":
             fname = a + ".csv"
     (qumulo, path) = args[0].split(':')
 
+    log_clean()
     if time_flag:
         now = int(datetime.timestamp(datetime.now()))
         find_time = now-time_limit
