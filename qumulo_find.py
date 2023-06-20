@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 import urllib.parse
 import json
+import shutil
 from random import randrange
 import urllib3
 urllib3.disable_warnings()
@@ -160,9 +161,10 @@ if __name__ == "__main__":
     running_threads = []
     THREADS_FACTOR = 10
     REAUTH_TIME = 10
+    fname = "qfind.csv"
 
-    optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
-                                                            '--threads='])
+    optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
+                                                            '--threads=', '--output-'])
     for opt, a in optlist:
         if opt in ['-h', '--help']:
             usage()
@@ -179,6 +181,8 @@ if __name__ == "__main__":
             time_flag = "modification_time"
         if opt in ('-T', '--threads'):
             max_threads = int(a)
+        if opt in ('-o', '--output'):
+            fname = a + ".csv"
     (qumulo, path) = args[0].split(':')
 
     if time_flag:
@@ -229,6 +233,21 @@ if __name__ == "__main__":
 
     print("JQF: " + str(job_queue.queue))
     print("RUNQF: " + str(running_threads))
+    if not parts_queue.empty():
+        print("Generating Report...")
+        ofh = open(fname, "w")
+        print("Path," + time_flag + ',Size', ofh)
+        ofh.close()
+        while not parts_queue.empty():
+            p = parts_queue.get()
+            with open(p, 'rb') as rfh:
+                with open (fname, 'ab') as ofh:
+                    shutil.copyfileobj(rfh, ofh)
+            rfh.close()
+            ofh.close()
+    print("Done!")
+
+
 
 
 
