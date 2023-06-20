@@ -248,7 +248,7 @@ if __name__ == "__main__":
                     shutil.copyfileobj(rfh, ofh)
             rfh.close()
             ofh.close()
-            os.remove(fname)
+            os.remove(p)
     print("Done!")
 
 
