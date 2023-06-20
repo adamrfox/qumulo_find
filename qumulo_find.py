@@ -11,6 +11,7 @@ from datetime import datetime
 import urllib.parse
 import json
 import shutil
+import os
 from random import randrange
 import urllib3
 urllib3.disable_warnings()
@@ -67,7 +68,7 @@ def auth_refresh(qumulo, user, password, token, refresh):
         auth = new_header
 
 def qumulo_get(addr, api):
-    dprint("API_GET: " + api)
+    print("API_GET: " + api)
     res= requests.get('https://' + addr + '/api' + api, headers=auth, verify=False, timeout=timeout)
     if res.status_code == 200:
         results = json.loads(res.content.decode('utf-8'))
@@ -108,7 +109,7 @@ def walk_tree(addr_list, job, time_flag, time_limit):
             top_dir = qumulo_get(addr_list[job_ptr]['address'], next)
         for dirent in top_dir['files']:
             if dirent['type'] == "FS_FILE_TYPE_DIRECTORY":
-                print("ADDING " + dirent['path'] + " to JQ")
+                dprint("ADDING " + dirent['path'] + " to JQ")
                 job_queue.put({'id': dirent['id'], 'path': dirent['path']})
             elif dirent['type'] == "FS_FILE_TYPE_FILE":
 #                print("FOUND_FILE: " + dirent['path'])
@@ -135,12 +136,10 @@ def walk_tree(addr_list, job, time_flag, time_limit):
             if not next:
                 done = True
         except:
-            print("THREAD_END: " + th_name)
             done = True
     if write_flag:
         fh[th_name].close()
         parts_queue.put('.' + fpath + '.part')
-    print("T_DONE: " + th_name)
     running_threads.remove(th_name)
 
 
@@ -211,32 +210,29 @@ if __name__ == "__main__":
         threading.Thread(name='walk_tree', target=walk_tree, args=(addr_list, job, time_flag, find_time)).start()
     print("Waiting for Jobs to Queue")
     time.sleep(20)
-    print("JQ1: " + str(job_queue.queue))
-    print("RUNQ1: " + str(running_threads))
     while not job_queue.empty() or len(running_threads) > 0:
         if not job_queue.empty() and len(running_threads) < max_threads:
             job = job_queue.get()
-            print("START: " + str(job))
+            dprint("START: " + str(job))
             threading.Thread(name=job['path'], target=walk_tree, args=(addr_list, job, time_flag, find_time)).start()
         elif not job_queue.empty():
             time.sleep(10)
             print("\nQueue: " + str(job_queue.qsize()))
             print("Running Threads: " + str(len(running_threads)))
         else:
-            print("Waiting for " + str(len(running_threads)) + " to complete")
+            print("Waiting for " + str(len(running_threads)) + " threads to complete")
             time.sleep(10)
-        print("JQ: " + str(job_queue.queue))
-        print("RUNQ: " + str(running_threads))
-        print("THREADS:")
-        for t in threading.enumerate():
-            print(t.name)
+        dprint("JQ: " + str(job_queue.queue))
+        dprint("RUNQ: " + str(running_threads))
+        dprint("THREADS:")
+        if DEBUG:
+            for t in threading.enumerate():
+                dprint(t.name)
 
-    print("JQF: " + str(job_queue.queue))
-    print("RUNQF: " + str(running_threads))
     if not parts_queue.empty():
         print("Generating Report...")
         ofh = open(fname, "w")
-        print("Path," + time_flag + ',Size', ofh)
+        ofh.write("Path," + time_flag + ',Size\n')
         ofh.close()
         while not parts_queue.empty():
             p = parts_queue.get()
@@ -245,6 +241,7 @@ if __name__ == "__main__":
                     shutil.copyfileobj(rfh, ofh)
             rfh.close()
             ofh.close()
+            os.remove(fnmae)
     print("Done!")
 
 
