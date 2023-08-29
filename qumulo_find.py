@@ -92,7 +92,7 @@ def walk_tree(addr_list, job, time_flag, time_limit):
     job_ptr = randrange(len(addr_list))
     if not j_id:
         top_info = qumulo_get(addr_list[job_ptr]['address'], '/v1/files/' + urllib.parse.quote(path, safe='') + '/info/attributes')
-        dprint(str(top_info))
+#        dprint(str(top_info))
         top_id = top_info['id']
     else:
         top_id = job['id']
