@@ -92,12 +92,10 @@ def walk_tree(addr_list, job, time_flag, time_limit):
     job_ptr = randrange(len(addr_list))
     if not j_id:
         top_info = qumulo_get(addr_list[job_ptr]['address'], '/v1/files/' + urllib.parse.quote(path, safe='') + '/info/attributes')
-#        dprint(str(top_info))
+        dprint(str(top_info))
         top_id = top_info['id']
     else:
         top_id = job['id']
-    if job['child_count'] == 0:
-        next
     running_threads.append(th_name)
     print("Scanning " + path + " on node " + addr_list[job_ptr]['name'])
     done = False
@@ -105,7 +103,6 @@ def walk_tree(addr_list, job, time_flag, time_limit):
     while not done:
         if not next:
             top_dir = qumulo_get(addr_list[job_ptr]['address'], '/v1/files/' + top_id + '/entries/')
-
         else:
 #            print("THREAD " + th_name + " PAGING: " + next)
             top_dir = qumulo_get(addr_list[job_ptr]['address'], next)
