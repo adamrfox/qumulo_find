@@ -72,7 +72,7 @@ def qumulo_get(addr, api):
     res= requests.get('https://' + addr + '/api' + api, headers=auth, verify=False, timeout=timeout)
     if res.status_code == 200:
         results = json.loads(res.content.decode('utf-8'))
-        dprint("RES [" + api + " ] : " + str(results))
+#        dprint("RES [" + api + " ] : " + str(results))
         return(results)
     else:
         sys.stderr.write("API ERROR:\n")
