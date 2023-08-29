@@ -96,6 +96,8 @@ def walk_tree(addr_list, job, time_flag, time_limit):
         top_id = top_info['id']
     else:
         top_id = job['id']
+    if job['child_count'] == 0:
+        next
     running_threads.append(th_name)
     print("Scanning " + path + " on node " + addr_list[job_ptr]['name'])
     done = False
