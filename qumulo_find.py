@@ -11,6 +11,8 @@ from datetime import datetime
 import urllib.parse
 import json
 import shutil
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
 import os
 from random import randrange
 import urllib3
@@ -72,15 +74,83 @@ def qumulo_get(addr, api):
     res= requests.get('https://' + addr + '/api' + api, headers=auth, verify=False, timeout=timeout)
     if res.status_code == 200:
         results = json.loads(res.content.decode('utf-8'))
-#        dprint("RES [" + api + " ] : " + str(results))
+#        pp.pprint("RES [" + api + " ] : " + str(results))
         return(results)
     else:
         sys.stderr.write("API ERROR:\n")
         sys.stderr.write(str(res.content) + "\n")
         exit(3)
 
+def check_mtime(file, t_crit, t_limit):
+#    print(file)
+ #   print(criteria)
+    t_limit = t_limit*86400
+    if '.' in file['modification_time']:
+        ftf = file['modification_time'].split('.')
+        f_time = ftf[0]
+    else:
+        f_time = file['modification_time'][:-1]
+    try:
+        f_ts = datetime.timestamp(datetime.strptime(f_time, '%Y-%m-%dT%H:%M:%S'))
+    except ValueError:
+        sys.stderr.write("BAD TIME TIME FOR " + file['path'] + " : " + file['modification_time'])
+        return(False)
+    if t_crit.endswith('gt'):
+#        print("MFTS: " + str(f_ts) + ' // ' + str(now - t_limit))
+        if f_ts < now - t_limit:
+            return(True)
+    elif t_crit.endswith('lt'):
+        if f_ts > now - t_limit:
+            return(True)
+    elif t_crit.endswith('eq'):
+        if f_ts == now - t_limit:
+            return(True)
+    return(False)
 
-def walk_tree(addr_list, job, time_flag, time_limit):
+def check_atime(file, t_crit, t_limit):
+    t_limit = t_limit*86400
+    if '.' in file['access_time']:
+        ftf = file['access_time'].split('.')
+        f_time = ftf[0]
+    else:
+        f_time = file['access_time'][:-1]
+    try:
+        f_ts = datetime.timestamp(datetime.strptime(f_time, '%Y-%m-%dT%H:%M:%S'))
+    except ValueError:
+        sys.stderr.write("BAD TIME TIME FOR " + file['path'] + " : " + file['access_time'])
+        return(False)
+    if t_crit.endswith('gt'):
+        if f_ts < now - t_limit:
+            return(True)
+    elif t_crit.endswith('lt'):
+        if f_ts > now - t_limit:
+            return(True)
+    elif t_crit.endswith('eq'):
+        if f_ts == now - t_limit:
+            return(True)
+    return(False)
+
+def check_extension (file, ext_list):
+    fn_f = file['name'].split('.')
+    f_ext = fn_f[-1]
+    for ext in ext_list:
+        if f_ext == ext:
+            return (True)
+    return(False)
+def check_path(file, path_list):
+    for pat in path_list:
+        if pat in file['path']:
+            return (True)
+    return(False)
+
+def check_name(file, name_list):
+    for name_pattern in name_list:
+        if name_pattern in file['name']:
+            return(True)
+    return(False)
+
+def walk_tree(addr_list, job, criteria):
+#    print("WCRIT= " + str(criteria))
     write_flag = False
     th = threading.current_thread()
     th_name = th.name
@@ -102,7 +172,7 @@ def walk_tree(addr_list, job, time_flag, time_limit):
     next = ''
     while not done:
         if not next:
-            top_dir = qumulo_get(addr_list[job_ptr]['address'], '/v1/files/' + top_id + '/entries/')
+            top_dir = qumulo_get(addr_list[job_ptr]['address'], '/v1/files/' + top_id + '/entries/?limit=500')
         else:
 #            print("THREAD " + th_name + " PAGING: " + next)
             top_dir = qumulo_get(addr_list[job_ptr]['address'], next)
@@ -112,23 +182,38 @@ def walk_tree(addr_list, job, time_flag, time_limit):
                 job_queue.put({'id': dirent['id'], 'path': dirent['path']})
             elif dirent['type'] == "FS_FILE_TYPE_FILE":
 #                print("FOUND_FILE: " + dirent['path'])
-                if '.' in dirent[time_flag]:
-                    ftf = dirent[time_flag].split('.')
-                    f_time = ftf[0]
-                else:
-                    f_time = dirent[time_flag][:-1]
-                try:
-                    f_ts = datetime.timestamp(datetime.strptime(f_time, '%Y-%m-%dT%H:%M:%S'))
-                except ValueError:
-                    sys.stderr.write("BAD TIME TIME FOR " + dirent['path'] + " : " + dirent[time_flag])
-                    continue
-                if f_ts < time_limit:
+                crit_ok = True
+                if criteria:
+                    for c in criteria:
+                        if c.startswith('mtime'):
+                            if not check_mtime(dirent, c, criteria[c]):
+                                crit_ok = False
+                                break
+                        if c.startswith('atime'):
+                            if not check_atime(dirent, c, criteria[c]):
+                                crit_ok = False
+                                break
+                        if c == "extension":
+                            if not check_extension(dirent, criteria[c]):
+                                crit_ok = False
+                                break
+                        if c == 'path':
+                            if not check_path(dirent, criteria[c]):
+                                crit_ok = False
+                                continue
+                        if c == 'name':
+                            if not check_name(dirent, criteria[c]):
+                                crit_ok = False
+                                continue
+                if crit_ok:
                     if not fh[th_name]:
                         fp_f = path.split('/')
                         fpath = '_'.join(fp_f)
                         fpath = fpath.replace(':', '_')
                         fh[th_name] = open('.' + fpath + '.part', "w")
-                    oprint(dirent['path'] + "," + f_time + "," + dirent['size'], fh[th_name])
+                    mtime_f = dirent['modification_time'].split('.')
+                    atime_f = dirent['access_time'].split('.')
+                    oprint(dirent['path'] + "," + mtime_f[0] + "," + atime_f[0] + "," + dirent['size'], fh[th_name])
                     write_flag = True
         try:
             next = top_dir['paging']['next']
@@ -146,6 +231,34 @@ def log_clean():
     for f in files:
         if f.startswith('._') and f.endswith('.part'):
             os.remove(f)
+
+def get_search_criteria(crit_file):
+    crit = {}
+    cf = open(crit_file)
+    cf_s = cf.read()
+    cf.close()
+    crit_cand = json.loads(cf_s)
+    for ck in crit_cand:
+        if not ck[:1].isalpha():
+            continue
+        if ck == 'mtime':
+            if crit_cand[ck][0] == '<':
+                crit['mtime_lt'] = int(crit_cand[ck][1:])
+            elif crit_cand[ck][0] == '>':
+                crit['mtime_gt'] = int(crit_cand[ck][1:])
+            else:
+                crit_cand['mtime_eq'] = int(crit_cand[ck][1:])
+        elif ck == 'atime':
+            if crit_cand[ck][0] == '<':
+                crit['atime_lt'] = int(crit_cand[ck][1:])
+            elif crit_cand[ck][0] == '>':
+                crit['atime_gt'] = int(crit_cand[ck][1:])
+            else:
+                crit_cand['atime_eq'] = int(crit_cand[ck][1:])
+        else:
+            crit[ck] = crit_cand[ck]
+    dprint(str(crit))
+    return(crit)
 
 
 if __name__ == "__main__":
@@ -166,9 +279,11 @@ if __name__ == "__main__":
     THREADS_FACTOR = 10
     REAUTH_TIME = 10
     fname = "qfind.csv"
+    crit_file = "criteria.json"
+    criteria = {}
 
-    optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
-                                                            '--threads=', '--output-'])
+    optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:s:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
+                                                            '--threads=', '--output=', '--search_file='])
     for opt, a in optlist:
         if opt in ['-h', '--help']:
             usage()
@@ -187,12 +302,13 @@ if __name__ == "__main__":
             max_threads = int(a)
         if opt in ('-o', '--output'):
             fname = a + ".csv"
-    (qumulo, path) = args[0].split(':')
+        if opt in ('s', '--search_file'):
+            crit_file = a
 
+    (qumulo, path) = args[0].split(':')
+    criteria = get_search_criteria(crit_file)
     log_clean()
-    if time_flag:
-        now = int(datetime.timestamp(datetime.now()))
-        find_time = now-time_limit
+    now = int(datetime.timestamp(datetime.now()))
     auth = api_login(qumulo, user, password, token)
     dprint(str(auth))
     net_data = requests.get('https://' + qumulo + '/v2/network/interfaces/1/status/', headers=auth,
@@ -211,22 +327,24 @@ if __name__ == "__main__":
 # Start Auth Thread
     threading.Thread(name='auth', target=auth_refresh, args=(qumulo, user, password, token,REAUTH_TIME),daemon=True).start()
 # Start Tree Walk Threads
-    if time_flag:
-        job = {'path': path, 'id': ''}
-        threading.Thread(name='walk_tree', target=walk_tree, args=(addr_list, job, time_flag, find_time)).start()
+    job = {'path': path, 'id': ''}
+    threading.Thread(name='walk_tree', target=walk_tree, args=(addr_list, job, criteria)).start()
     print("Waiting for Jobs to Queue")
     time.sleep(20)
     while not job_queue.empty() or len(running_threads) > 0:
         if not job_queue.empty() and len(running_threads) < max_threads:
             job = job_queue.get()
             dprint("START: " + str(job))
-            threading.Thread(name=job['path'], target=walk_tree, args=(addr_list, job, time_flag, find_time)).start()
+            threading.Thread(name=job['path'], target=walk_tree, args=(addr_list, job, criteria)).start()
         elif not job_queue.empty():
             time.sleep(10)
             print("\nQueue: " + str(job_queue.qsize()))
             print("Running Threads: " + str(len(running_threads)))
         else:
-            print("Waiting for " + str(len(running_threads)) + " threads to complete")
+            if len(running_threads) > 1:
+                print("Waiting for " + str(len(running_threads)) + " threads to complete")
+            else:
+                print ("Waiting for 1 thread to complete: " + str(running_threads))
             time.sleep(10)
         dprint("JQ: " + str(job_queue.queue))
         dprint("RUNQ: " + str(running_threads))
@@ -238,7 +356,7 @@ if __name__ == "__main__":
     if not parts_queue.empty():
         print("Generating Report...")
         ofh = open(fname, "w")
-        ofh.write("Path," + time_flag + ',Size\n')
+        ofh.write("Path,Mtime,Atime,Size\n")
         ofh.close()
         while not parts_queue.empty():
             p = parts_queue.get()
