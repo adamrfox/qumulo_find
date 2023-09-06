@@ -385,9 +385,9 @@ if __name__ == "__main__":
                 print ("Waiting for 1 thread to complete: " + str(running_threads))
             time.sleep(10)
         dprint("THREADS [" + str(len(running_threads)) + "]:")
-        if DEBUG:
-            for t in threading.enumerate():
-                dprint(t.name)
+#        if DEBUG:
+#           for t in threading.enumerate():
+#                dprint(t.name)
 
     if not parts_queue.empty():
         print("Generating Report...")
