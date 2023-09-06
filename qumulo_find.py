@@ -383,8 +383,6 @@ if __name__ == "__main__":
             else:
                 print ("Waiting for 1 thread to complete: " + str(running_threads))
             time.sleep(10)
-        dprint("JQ: " + str(job_queue.queue))
-        dprint("RUNQ: " + str(running_threads))
         dprint("THREADS:")
         if DEBUG:
             for t in threading.enumerate():
