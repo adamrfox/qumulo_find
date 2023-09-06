@@ -163,7 +163,7 @@ def check_name(file, name_list):
 
 def add_job_to_queue(job_data):
     JQ_CEILING = 50000
-    JQ_FLOOR = 40000
+    JQ_FLOOR = JQ_CEILING-(max_threads -2)
     if job_queue.qsize() >= JQ_CEILING:
         print("Job Queue Ceiling hit: " + str(job_queue.qsize()))
         while job_queue.qsize() > JQ_FLOOR:
@@ -383,7 +383,7 @@ if __name__ == "__main__":
             else:
                 print ("Waiting for 1 thread to complete: " + str(running_threads))
             time.sleep(10)
-        dprint("THREADS:")
+        dprint("THREADS [" + str(len(running_threads)) + "]:")
         if DEBUG:
             for t in threading.enumerate():
                 dprint(t.name)
