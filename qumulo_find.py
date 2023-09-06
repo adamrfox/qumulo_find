@@ -18,6 +18,25 @@ from random import randrange
 import urllib3
 urllib3.disable_warnings()
 
+class MaxVals():
+    def __init__(self, orig):
+        self._max_orig = orig
+        self._max_ceiling = int(orig/2)
+        self._max_threads = orig
+        self._lock = threading.Lock()
+
+    def set_mt_to_ceiling(self):
+        with self._lock:
+            self._max_threads = self._max_ceiling
+
+    def set_mt_to_original(self):
+        with self._lock:
+            self._max_threads = self._max_orig
+
+    def value(self):
+        with self._lock:
+            return(self._max_threads)
+
 def usage():
     print("Usage goes here!")
     exit(0)
@@ -163,13 +182,13 @@ def check_name(file, name_list):
 
 def add_job_to_queue(job_data):
     JQ_CEILING = 50000
-    JQ_FLOOR = JQ_CEILING-(max_threads -2)
+    JQ_FLOOR = JQ_CEILING-(mt.value() -2)
     if job_queue.qsize() >= JQ_CEILING:
-        max_threads = max_threads_ceiling
-        print("Job Queue Ceiling hit: " + str(job_queue.qsize()) + " / MT: " + str(max_threads))
-    elif job_queue.qsize() < JQ_FLOOR:
-        max_threads = max_thread_original
-        print("Max Threads Reset: " + str(max_threads))
+        mt.set_mt_to_ceiling()
+        print("Job Queue Ceiling hit: " + str(job_queue.qsize()) + " / MT: " + str(mt.value()))
+    elif job_queue.qsize() < JQ_FLOOR and mt.value() == mt._max_ceiling:
+        mt.set_mt_to_original()
+        print("Max Threads Reset: " + str(mt.value()))
     job_queue.put(job_data)
     return
 
@@ -361,8 +380,7 @@ if __name__ == "__main__":
                 addr_list.append({'name': node['node_name'], 'address': ints['address']})
     if max_threads == 0:
         max_threads = THREADS_FACTOR * len(addr_list)
-    max_threads_original = max_threads
-    max_threads_ceiling = int(max_threads/2)
+    mt = MaxVals(max_threads)
     dprint(str(addr_list))
     print("Using up to " + str(max_threads) + " threads across " + str(len(addr_list)) + " nodes.")
 # Start Auth Thread
@@ -373,7 +391,7 @@ if __name__ == "__main__":
     print("Waiting for Jobs to Queue")
     time.sleep(20)
     while not job_queue.empty() or len(running_threads) > 0:
-        if not job_queue.empty() and len(running_threads) < max_threads:
+        if not job_queue.empty() and len(running_threads) < mt.value():
             job = job_queue.get()
             dprint("START: " + str(job))
             threading.Thread(name=job['path'], target=walk_tree, args=(addr_list, job, criteria)).start()
