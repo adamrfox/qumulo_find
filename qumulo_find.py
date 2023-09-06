@@ -167,6 +167,7 @@ def add_job_to_queue(job_data):
     if job_queue.qsize() >= JQ_CEILING:
         print("Job Queue Ceiling hit: " + str(job_queue.qsize()))
         while job_queue.qsize() > JQ_FLOOR:
+            print("   Job Queue: " + str(job_queue.qsize()))
             time.sleep(10)
     job_queue.put(job_data)
     return
