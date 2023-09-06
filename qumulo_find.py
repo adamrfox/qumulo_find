@@ -130,6 +130,18 @@ def check_atime(file, t_crit, t_limit):
             return(True)
     return(False)
 
+def check_size(file, t_crit, t_limit):
+    f_size = int(file['size'])
+    if t_crit.endswith('gt'):
+        if f_size > t_limit:
+            return(True)
+    elif t_crit.endswith('lt'):
+        if f_size < t_limit:
+            return(True)
+    elif t_crit.endswith('eq'):
+        if f_size == t_limit:
+            return(True)
+    return(False)
 def check_extension (file, ext_list):
     fn_f = file['name'].split('.')
     f_ext = fn_f[-1]
@@ -149,6 +161,16 @@ def check_name(file, name_list):
             return(True)
     return(False)
 
+def add_job_to_queue(job_data):
+    JQ_CEILING = 50000
+    JQ_FLOOR = 40000
+    if job_queue.qsize() >= JQ_CEILING:
+        print("Job Queue Ceiling hit: " + str(job_queue.qsize()))
+        while job_queue.qsize() > JQ_FLOOR:
+            time.sleep(10)
+    job_queue.put(job_data)
+    return
+
 def walk_tree(addr_list, job, criteria):
 #    print("WCRIT= " + str(criteria))
     write_flag = False
@@ -167,7 +189,7 @@ def walk_tree(addr_list, job, criteria):
     else:
         top_id = job['id']
     running_threads.append(th_name)
-    print("Scanning " + path + " on node " + addr_list[job_ptr]['name'])
+    print("Scanning " + path + " on node " + addr_list[job_ptr]['name'] + " [JQ: " + str(job_queue.qsize()) + "] [RJ: " + str(len(running_threads)) + "]")
     done = False
     next = ''
     while not done:
@@ -179,7 +201,8 @@ def walk_tree(addr_list, job, criteria):
         for dirent in top_dir['files']:
             if dirent['type'] == "FS_FILE_TYPE_DIRECTORY":
                 dprint("ADDING " + dirent['path'] + " to JQ")
-                job_queue.put({'id': dirent['id'], 'path': dirent['path']})
+                add_job_to_queue({'id': dirent['id'], 'path': dirent['path']})
+#                job_queue.put({'id': dirent['id'], 'path': dirent['path']})
             elif dirent['type'] == "FS_FILE_TYPE_FILE":
 #                print("FOUND_FILE: " + dirent['path'])
                 crit_ok = True
@@ -203,6 +226,10 @@ def walk_tree(addr_list, job, criteria):
                                 continue
                         if c == 'name':
                             if not check_name(dirent, criteria[c]):
+                                crit_ok = False
+                                continue
+                        if c.startswith("size"):
+                            if not check_size(dirent, c, criteria[c]):
                                 crit_ok = False
                                 continue
                 if crit_ok:
@@ -238,6 +265,7 @@ def get_search_criteria(crit_file):
     cf_s = cf.read()
     cf.close()
     crit_cand = json.loads(cf_s)
+    valid_critera = ['mtime', 'atime', 'size', 'path', 'name', 'extension']
     for ck in crit_cand:
         if not ck[:1].isalpha():
             continue
@@ -255,8 +283,17 @@ def get_search_criteria(crit_file):
                 crit['atime_gt'] = int(crit_cand[ck][1:])
             else:
                 crit_cand['atime_eq'] = int(crit_cand[ck][1:])
-        else:
+        elif ck == 'size':
+            if crit_cand[ck][0] == '>':
+                crit['size_gt'] = int(crit_cand[ck][1:])
+            elif crit_cand[0] == '<':
+                crit['size_lt'] = int(crit_cand[ck][1:])
+            else:
+                crit_cand['atime_eq'] = int(crit_cand[ck][1:])
+        elif ck in valid_critera:
             crit[ck] = crit_cand[ck]
+        else:
+            sys.stderr.write("Unknown Criteria Found: " + ck + " ... ignoring.\n")
     dprint(str(crit))
     return(crit)
 
