@@ -165,10 +165,11 @@ def add_job_to_queue(job_data):
     JQ_CEILING = 50000
     JQ_FLOOR = JQ_CEILING-(max_threads -2)
     if job_queue.qsize() >= JQ_CEILING:
-        print("Job Queue Ceiling hit: " + str(job_queue.qsize()))
-        while job_queue.qsize() > JQ_FLOOR:
-            print("   Job Queue: " + str(job_queue.qsize()))
-            time.sleep(10)
+        max_threads = max_threads_ceiling
+        print("Job Queue Ceiling hit: " + str(job_queue.qsize()) + " / MT: " + str(max_threads))
+    elif job_queue.qsize() < JQ_FLOOR:
+        max_threads = max_thread_original
+        print("Max Threads Reset: " + str(max_threads))
     job_queue.put(job_data)
     return
 
@@ -360,6 +361,8 @@ if __name__ == "__main__":
                 addr_list.append({'name': node['node_name'], 'address': ints['address']})
     if max_threads == 0:
         max_threads = THREADS_FACTOR * len(addr_list)
+    max_threads_original = max_threads
+    max_threads_ceiling = int(max_threads/2)
     dprint(str(addr_list))
     print("Using up to " + str(max_threads) + " threads across " + str(len(addr_list)) + " nodes.")
 # Start Auth Thread
