@@ -182,7 +182,7 @@ def check_name(file, name_list):
 
 def add_job_to_queue(job_data):
     JQ_CEILING = 50000
-    JQ_FLOOR = JQ_CEILING-(mt.value() -2)
+    JQ_FLOOR = JQ_CEILING-(int(mt.value() -2))
     if job_queue.qsize() >= JQ_CEILING:
         mt.set_mt_to_ceiling()
         print("Job Queue Ceiling hit: " + str(job_queue.qsize()) + " / MT: " + str(mt.value()))
@@ -222,8 +222,8 @@ def walk_tree(addr_list, job, criteria):
         for dirent in top_dir['files']:
             if dirent['type'] == "FS_FILE_TYPE_DIRECTORY":
                 dprint("ADDING " + dirent['path'] + " to JQ")
-                add_job_to_queue({'id': dirent['id'], 'path': dirent['path']})
-#                job_queue.put({'id': dirent['id'], 'path': dirent['path']})
+#                add_job_to_queue({'id': dirent['id'], 'path': dirent['path']})
+                job_queue.put({'id': dirent['id'], 'path': dirent['path']})
             elif dirent['type'] == "FS_FILE_TYPE_FILE":
 #                print("FOUND_FILE: " + dirent['path'])
                 crit_ok = True
@@ -339,9 +339,10 @@ if __name__ == "__main__":
     fname = "qfind.csv"
     crit_file = "criteria.json"
     criteria = {}
+    JQ_CEILING = 50000
 
-    optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:s:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
-                                                            '--threads=', '--output=', '--search_file='])
+    optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:s:H:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
+                                                            '--threads=', '--output=', '--search_file=', '--hwmark='])
     for opt, a in optlist:
         if opt in ['-h', '--help']:
             usage()
@@ -362,6 +363,8 @@ if __name__ == "__main__":
             fname = a + ".csv"
         if opt in ('s', '--search_file'):
             crit_file = a
+        if opt in ('-H', '--hwmark'):
+            JQ_CEILING = int(a)
 
     (qumulo, path) = args[0].split(':')
     criteria = get_search_criteria(crit_file)
@@ -392,6 +395,10 @@ if __name__ == "__main__":
     time.sleep(20)
     while not job_queue.empty() or len(running_threads) > 0:
         if not job_queue.empty() and len(running_threads) < mt.value():
+            if JQ_CEILING and job_queue.qsize() > JQ_CEILING:
+                while len(running_threads) > int(max_threads/2):
+#                    print("CEILING: JQ: " + str(job_queue.qsize()) + " // RQ: " + str(len(running_threads)))
+                    time.sleep(5)
             job = job_queue.get()
             dprint("START: " + str(job))
             threading.Thread(name=job['path'], target=walk_tree, args=(addr_list, job, criteria)).start()
