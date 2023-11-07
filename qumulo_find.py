@@ -96,7 +96,8 @@ def qumulo_get(addr, api):
 #        pp.pprint("RES [" + api + " ] : " + str(results))
         return(results)
     else:
-        sys.stderr.write("API ERROR:\n")
+
+        sys.stderr.write("API ERROR: " + str(res.status_code) + "\n")
         sys.stderr.write(str(res.content) + "\n")
         exit(3)
 
