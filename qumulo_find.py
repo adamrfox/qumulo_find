@@ -11,6 +11,7 @@ from datetime import datetime
 import urllib.parse
 import json
 import shutil
+import hashlib
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 import os
@@ -256,10 +257,15 @@ def walk_tree(addr_list, job, criteria):
                                 continue
                 if crit_ok:
                     if not fh[th_name]:
-                        fp_f = path.split('/')
-                        fpath = '_'.join(fp_f)
-                        fpath = fpath.replace(':', '_')
-                        fh[th_name] = open('.' + fpath + '.part', "w")
+                        if len(path) < 100:
+                            fp_f = path.split('/')
+                            fpath = '_'.join(fp_f)
+                            fpath = fpath.replace(':', '_')
+                            fh[th_name] = open('.' + fpath + '.part', "w")
+                        else:
+                            fpath = "._" + hashlib.md5(path.encode()).hexdigest() + ".part"
+                            fh[th_name] = open(fpath,"w")
+                            oprint("# " + path, fh[th_name])
                     mtime_f = dirent['modification_time'].split('.')
                     atime_f = dirent['access_time'].split('.')
                     oprint(dirent['path'] + "," + mtime_f[0] + "," + atime_f[0] + "," + dirent['size'], fh[th_name])
@@ -422,15 +428,15 @@ if __name__ == "__main__":
         print("Generating Report...")
         ofh = open(fname, "w")
         ofh.write("Path,Mtime,Atime,Size\n")
-        ofh.close()
         while not parts_queue.empty():
             p = parts_queue.get()
-            with open(p, 'rb') as rfh:
-                with open (fname, 'ab') as ofh:
-                    shutil.copyfileobj(rfh, ofh)
+            rfh = open(p, "r")
+            for l in rfh:
+                if not l.startswith('#'):
+                    oprint(l, ofh)
             rfh.close()
-            ofh.close()
             os.remove(p)
+        ofh.close()
     print("Done!")
 
 
