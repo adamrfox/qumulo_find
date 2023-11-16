@@ -272,6 +272,8 @@ def walk_tree(addr_list, job, criteria):
                     atime_f = dirent['access_time'].split('.')
                     oprint(dirent['path'] + "," + mtime_f[0] + "," + atime_f[0] + "," + dirent['size'], fh[th_name])
                     write_flag = True
+            else:
+                continue
         try:
             next = top_dir['paging']['next']
             if not next:
