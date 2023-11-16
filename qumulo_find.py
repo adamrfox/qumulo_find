@@ -96,8 +96,10 @@ def qumulo_get(addr, api):
         results = json.loads(res.content.decode('utf-8'))
 #        pp.pprint("RES [" + api + " ] : " + str(results))
         return(results)
+    elif res.status_code == 404:
+        pp.print("GOT 404:" + api)
+        exit(3)
     else:
-
         sys.stderr.write("API ERROR: " + str(res.status_code) + "\n")
         sys.stderr.write(str(res.content) + "\n")
         exit(3)
