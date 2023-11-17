@@ -19,6 +19,23 @@ from random import randrange
 import urllib3
 urllib3.disable_warnings()
 
+class AtomicCounter:
+
+    def __init__(self, initial=0):
+        """Initialize a new atomic counter to given initial value (default 0)."""
+        self.value = initial
+        self._lock = threading.Lock()
+
+
+    def increment(self, num=1):
+        """Atomically increment the counter by num (default 1) and return the
+        new value.
+        """
+        with self._lock:
+            self.value += num
+            return self.value
+
+
 class MaxVals():
     def __init__(self, orig):
         self._max_orig = orig
@@ -185,15 +202,14 @@ def check_name(file, name_list):
     return(False)
 
 def add_job_to_queue(job_data):
-    JQ_CEILING = 50000
-    JQ_FLOOR = JQ_CEILING-(int(mt.value() -2))
     if job_queue.qsize() >= JQ_CEILING:
-        mt.set_mt_to_ceiling()
-        print("Job Queue Ceiling hit: " + str(job_queue.qsize()) + " / MT: " + str(mt.value()))
-    elif job_queue.qsize() < JQ_FLOOR and mt.value() == mt._max_ceiling:
-        mt.set_mt_to_original()
-        print("Max Threads Reset: " + str(mt.value()))
-    job_queue.put(job_data)
+        with f_lock:
+            swp = open(swap_file, "a")
+            swp.write(str(job_data) + "\n")
+            swp.close()
+            backlog.increment()
+    else:
+        job_queue.put(job_data)
     return
 
 def walk_tree(addr_list, job, criteria):
@@ -214,7 +230,7 @@ def walk_tree(addr_list, job, criteria):
     else:
         top_id = job['id']
     running_threads.append(th_name)
-    print("Scanning " + path + " on node " + addr_list[job_ptr]['name'] + " [JQ: " + str(job_queue.qsize()) + "] [RJ: " + str(len(running_threads)) + "]")
+    print("Scanning " + path + " on node " + addr_list[job_ptr]['name'] + " [JQ: " + str(job_queue.qsize()) + "] [RJ: " + str(len(running_threads)) + "] + [BL: " + str(backlog.value) + "]")
     done = False
     next = ''
     while not done:
@@ -226,8 +242,8 @@ def walk_tree(addr_list, job, criteria):
         for dirent in top_dir['files']:
             if dirent['type'] == "FS_FILE_TYPE_DIRECTORY":
                 dprint("ADDING " + dirent['path'] + " to JQ")
-#                add_job_to_queue({'id': dirent['id'], 'path': dirent['path']})
-                job_queue.put({'id': dirent['id'], 'path': dirent['path']})
+                add_job_to_queue({'id': dirent['id'], 'path': dirent['path']})
+#                job_queue.put({'id': dirent['id'], 'path': dirent['path']})
             elif dirent['type'] == "FS_FILE_TYPE_FILE":
 #                print("FOUND_FILE: " + dirent['path'])
                 crit_ok = True
@@ -350,7 +366,11 @@ if __name__ == "__main__":
     fname = "qfind.csv"
     crit_file = "criteria.json"
     criteria = {}
-    JQ_CEILING = 50000
+    JQ_CEILING = 1000000
+    JQ_FLOOR = 400000
+    f_lock = threading.Lock()
+    swap_file = ".job_queue.swap"
+    backlog = AtomicCounter()
 
     optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:s:H:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
                                                             '--threads=', '--output=', '--search_file=', '--hwmark='])
