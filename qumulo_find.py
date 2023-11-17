@@ -35,26 +35,6 @@ class AtomicCounter:
             self.value += num
             return self.value
 
-
-class MaxVals():
-    def __init__(self, orig):
-        self._max_orig = orig
-        self._max_ceiling = int(orig/2)
-        self._max_threads = orig
-        self._lock = threading.Lock()
-
-    def set_mt_to_ceiling(self):
-        with self._lock:
-            self._max_threads = self._max_ceiling
-
-    def set_mt_to_original(self):
-        with self._lock:
-            self._max_threads = self._max_orig
-
-    def value(self):
-        with self._lock:
-            return(self._max_threads)
-
 def usage():
     print("Usage goes here!")
     exit(0)
@@ -105,6 +85,37 @@ def auth_refresh(qumulo, user, password, token, refresh):
         new_header = api_login(qumulo, user, password, token)
         dprint("API_LOGIN_UPDATE")
         auth = new_header
+def job_swap():
+    while True:
+        time.sleep(30)
+        if job_queue.qsize() < JQ_FLOOR and os.path.exists(swap_file):
+            done = False
+            read_max = False
+            i = 1
+            while not done:
+                print("SWAPPING....")
+                with f_lock:
+                    swph = open(swap_file, "r")
+                    for l in swph:
+                        if not read_max:
+                            jqe = json.loads(l)
+                            job_queue.put(jpe)
+                        else:
+                            if not os.path.exists(swap_file + '.new'):
+                                nswph = open(swap_file + '/new', 'w')
+                                nswph.write(l)
+                        i += 1
+                        if i >= (int((JQ_CEILING - JQ_FLOOR)/2)):
+                            read_max = True
+                    done = True
+                    swph.close()
+                    if read_max:
+                        nswph.close()
+                        shutil.copyfile(swap_file + '.new', swap_file)
+                        os.remove(swap_file + '.new')
+                    else:
+                        os.remove(swap_file)
+            print("SWAP_DONE!")
 
 def qumulo_get(addr, api):
     dprint("API_GET: " + api)
@@ -202,7 +213,7 @@ def check_name(file, name_list):
     return(False)
 
 def add_job_to_queue(job_data):
-    if job_queue.qsize() >= JQ_CEILING:
+    if JQ_CEILING > 0 and job_queue.qsize() >= JQ_CEILING:
         with f_lock:
             swp = open(swap_file, "a")
             swp.write(str(job_data) + "\n")
@@ -304,7 +315,7 @@ def walk_tree(addr_list, job, criteria):
 def log_clean():
     files = os.listdir('.')
     for f in files:
-        if f.startswith('._') and f.endswith('.part'):
+        if (f.startswith('._') and f.endswith('.part')) or (f.startswith('.') and f.endswith('.swap')):
             os.remove(f)
 
 def get_search_criteria(crit_file):
@@ -372,8 +383,8 @@ if __name__ == "__main__":
     swap_file = ".job_queue.swap"
     backlog = AtomicCounter()
 
-    optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:s:H:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
-                                                            '--threads=', '--output=', '--search_file=', '--hwmark='])
+    optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:s:w:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
+                                                            '--threads=', '--output=', '--search_file=', '--watermarks='])
     for opt, a in optlist:
         if opt in ['-h', '--help']:
             usage()
@@ -394,8 +405,10 @@ if __name__ == "__main__":
             fname = a + ".csv"
         if opt in ('s', '--search_file'):
             crit_file = a
-        if opt in ('-H', '--hwmark'):
-            JQ_CEILING = int(a)
+        if opt in ('-w', '--watermarks'):
+            marks = a.split(':')
+            JQ_CEILING = marks[0]
+            JQ_FLOOR = marks[1]
 
     (qumulo, path) = args[0].split(':')
     criteria = get_search_criteria(crit_file)
@@ -414,22 +427,24 @@ if __name__ == "__main__":
                 addr_list.append({'name': node['node_name'], 'address': ints['address']})
     if max_threads == 0:
         max_threads = THREADS_FACTOR * len(addr_list)
-    mt = MaxVals(max_threads)
     dprint(str(addr_list))
     print("Using up to " + str(max_threads) + " threads across " + str(len(addr_list)) + " nodes.")
 # Start Auth Thread
     threading.Thread(name='auth', target=auth_refresh, args=(qumulo, user, password, token,REAUTH_TIME),daemon=True).start()
+# Start Swap Thread
+    if JQ_CEILING > 0:
+        threading.Thread(name='swap', target=job_swap, daemon=True).start()
 # Start Tree Walk Threads
     job = {'path': path, 'id': ''}
     threading.Thread(name='walk_tree', target=walk_tree, args=(addr_list, job, criteria)).start()
     print("Waiting for Jobs to Queue")
     time.sleep(20)
     while not job_queue.empty() or len(running_threads) > 0:
-        if not job_queue.empty() and len(running_threads) < mt.value():
-            if JQ_CEILING and job_queue.qsize() > JQ_CEILING:
-                while len(running_threads) > int(max_threads/2):
+        if not job_queue.empty() and len(running_threads) < max_threads:
+#            if JQ_CEILING and job_queue.qsize() > JQ_CEILING:
+#                while len(running_threads) > int(max_threads/2):
 #                    print("CEILING: JQ: " + str(job_queue.qsize()) + " // RQ: " + str(len(running_threads)))
-                    time.sleep(5)
+#                    time.sleep(5)
             job = job_queue.get()
             dprint("START: " + str(job))
             threading.Thread(name=job['path'], target=walk_tree, args=(addr_list, job, criteria)).start()
