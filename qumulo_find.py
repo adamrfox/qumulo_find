@@ -409,8 +409,8 @@ if __name__ == "__main__":
             crit_file = a
         if opt in ('-w', '--watermarks'):
             marks = a.split(':')
-            JQ_CEILING = marks[0]
-            JQ_FLOOR = marks[1]
+            JQ_CEILING = int(marks[0])
+            JQ_FLOOR = int(marks[1])
 
     (qumulo, path) = args[0].split(':')
     criteria = get_search_criteria(crit_file)
