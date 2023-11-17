@@ -86,6 +86,7 @@ def auth_refresh(qumulo, user, password, token, refresh):
         dprint("API_LOGIN_UPDATE")
         auth = new_header
 def job_swap():
+    global bl_flag
     while True:
         time.sleep(30)
         if job_queue.qsize() < JQ_FLOOR and os.path.exists(swap_file):
@@ -216,8 +217,9 @@ def check_name(file, name_list):
     return(False)
 
 def add_job_to_queue(job_data):
-    if (job_flag) or (JQ_CEILING > 0 and job_queue.qsize() >= JQ_CEILING):
-        job_flag = True
+    global bl_flag
+    if (bl_flag) or (JQ_CEILING > 0 and job_queue.qsize() >= JQ_CEILING):
+        bl_flag = True
         with f_lock:
             swp = open(swap_file, "a")
             swp.write(str(job_data) + "\n")
