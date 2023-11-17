@@ -114,6 +114,7 @@ def job_swap():
                         shutil.copyfile(swap_file + '.new', swap_file)
                         os.remove(swap_file + '.new')
                         backlog = AtomicCounter()
+                        bl_flag = False
                     else:
                         os.remove(swap_file)
                         backlog.increment(-i)
@@ -215,7 +216,8 @@ def check_name(file, name_list):
     return(False)
 
 def add_job_to_queue(job_data):
-    if JQ_CEILING > 0 and job_queue.qsize() >= JQ_CEILING:
+    if (job_flag) or (JQ_CEILING > 0 and job_queue.qsize() >= JQ_CEILING):
+        job_flag = True
         with f_lock:
             swp = open(swap_file, "a")
             swp.write(str(job_data) + "\n")
@@ -243,7 +245,7 @@ def walk_tree(addr_list, job, criteria):
     else:
         top_id = job['id']
     running_threads.append(th_name)
-    print("Scanning " + path + " on node " + addr_list[job_ptr]['name'] + " [JQ: " + str(job_queue.qsize()) + "] [RJ: " + str(len(running_threads)) + "] + [BL: " + str(backlog.value) + "]")
+    print("Scanning " + path + " on node " + addr_list[job_ptr]['name'] + " [JQ: " + str(job_queue.qsize()) + "] [RJ: " + str(len(running_threads)) + "]  [BL: " + str(backlog.value) + " : " + str(bl_flag) + "]")
     done = False
     next = ''
     while not done:
@@ -384,6 +386,7 @@ if __name__ == "__main__":
     f_lock = threading.Lock()
     swap_file = ".job_queue.swap"
     backlog = AtomicCounter()
+    bl_flag = False
 
     optlist, args = getopt.getopt(sys.argv[1:], 'hDt:c:m:T:o:s:w:', ['--help', '--DEBUG', '--token=', '--creds=', '--mtime=',
                                                             '--threads=', '--output=', '--search_file=', '--watermarks='])
