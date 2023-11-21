@@ -96,6 +96,7 @@ def job_swap():
             while not done:
                 print("SWAPPING....")
                 with f_lock:
+                    print("SWAP HAS LOCK")
                     swph = open(swap_file, "r")
                     for l in swph:
                         l = l.replace("'", '"')
@@ -111,6 +112,7 @@ def job_swap():
                             read_max = True
                     done = True
                     swph.close()
+                    print("SWAP DONE READING")
                     if read_max:
                         nswph.close()
                         shutil.copyfile(swap_file + '.new', swap_file)
