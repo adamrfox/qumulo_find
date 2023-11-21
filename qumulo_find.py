@@ -106,7 +106,7 @@ def job_swap():
                         else:
                             if not os.path.exists(swap_file + '.new'):
                                 nswph = open(swap_file + '.new', 'w')
-                                nswph.write(l)
+                            nswph.write(l)
                         i += 1
                         if i >= (int((JQ_CEILING - JQ_FLOOR)/2)):
                             read_max = True
