@@ -118,7 +118,7 @@ def job_swap():
                         shutil.copyfile(swap_file + '.new', swap_file)
                         os.remove(swap_file + '.new')
                         backlog = AtomicCounter()
-                    else:
+                    else:dd
                         os.remove(swap_file)
                         backlog.increment(-i)
                         bl_flag = False
