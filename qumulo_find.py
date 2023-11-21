@@ -98,9 +98,10 @@ def job_swap():
                 with f_lock:
                     swph = open(swap_file, "r")
                     for l in swph:
+                        l = l.replace("'", '"')
                         if not read_max:
                             jqe = json.loads(l)
-                            job_queue.put(jpe)
+                            job_queue.put(jqe)
                         else:
                             if not os.path.exists(swap_file + '.new'):
                                 nswph = open(swap_file + '/new', 'w')
