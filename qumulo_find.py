@@ -118,10 +118,10 @@ def job_swap():
                         shutil.copyfile(swap_file + '.new', swap_file)
                         os.remove(swap_file + '.new')
                         backlog = AtomicCounter()
-                        bl_flag = False
                     else:
                         os.remove(swap_file)
                         backlog.increment(-i)
+                        bl_flag = False
             print("SWAP_DONE!")
 
 def qumulo_get(addr, api):
