@@ -118,7 +118,7 @@ def job_swap():
                         shutil.copyfile(swap_file + '.new', swap_file)
                         os.remove(swap_file + '.new')
                         backlog = AtomicCounter()
-                    else:dd
+                    else:
                         os.remove(swap_file)
                         backlog.increment(-i)
                         bl_flag = False
@@ -132,8 +132,7 @@ def qumulo_get(addr, api):
 #        pp.pprint("RES [" + api + " ] : " + str(results))
         return(results)
     elif res.status_code == 404:
-        pp.pprint("GOT 404:" + api)
-        exit(3)
+        return("404")
     else:
         sys.stderr.write("API ERROR: " + str(res.status_code) + "\n")
         sys.stderr.write(str(res.content) + "\n")
@@ -245,6 +244,8 @@ def walk_tree(addr_list, job, criteria):
     job_ptr = randrange(len(addr_list))
     if not j_id:
         top_info = qumulo_get(addr_list[job_ptr]['address'], '/v1/files/' + urllib.parse.quote(path, safe='') + '/info/attributes')
+        if top_info == "404":
+            print('GOT 404 in j_id')
         dprint(str(top_info))
         top_id = top_info['id']
     else:
@@ -256,9 +257,13 @@ def walk_tree(addr_list, job, criteria):
     while not done:
         if not next:
             top_dir = qumulo_get(addr_list[job_ptr]['address'], '/v1/files/' + top_id + '/entries/?limit=500')
+            if top_dir == "404":
+                print("GOT 404 in next loop: ' + top_id)
         else:
 #            print("THREAD " + th_name + " PAGING: " + next)
             top_dir = qumulo_get(addr_list[job_ptr]['address'], next)
+            if top_dir == "404":
+                print("GOT 404 in else loop: " + + top_id)
         for dirent in top_dir['files']:
             if dirent['type'] == "FS_FILE_TYPE_DIRECTORY":
                 dprint("ADDING " + dirent['path'] + " to JQ")
