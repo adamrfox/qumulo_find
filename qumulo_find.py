@@ -258,7 +258,7 @@ def walk_tree(addr_list, job, criteria):
         if not next:
             top_dir = qumulo_get(addr_list[job_ptr]['address'], '/v1/files/' + top_id + '/entries/?limit=500')
             if top_dir == "404":
-                print("GOT 404 in next loop: ' + top_id)
+                print('GOT 404 in next loop: ' + top_id)
         else:
 #            print("THREAD " + th_name + " PAGING: " + next)
             top_dir = qumulo_get(addr_list[job_ptr]['address'], next)
