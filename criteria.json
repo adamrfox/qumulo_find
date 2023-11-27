@@ -1,8 +1,8 @@
 {
-  "mtime": ">30",
+  "#mtime": ">30",
   "#atime": "<120",
-  "extension": ["mp3", "mp4"],
+  "extension": ["exe", "mp3"],
   "#name": ["foo", "bar"],
-  "path": ["p0", "dir1"],
-  "size": ">2048"
+  "#path": ["p0", "dir1"],
+  "#size": ">2048"
 }

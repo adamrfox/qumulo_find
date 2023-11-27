@@ -87,12 +87,14 @@ def auth_refresh(qumulo, user, password, token, refresh):
         auth = new_header
 def job_swap():
     global bl_flag
+    global backlog
     while True:
-        time.sleep(30)
+        time.sleep(10)
         if job_queue.qsize() < JQ_FLOOR and os.path.exists(swap_file):
             done = False
             read_max = False
             i = 1
+            new_size = 0
             while not done:
                 print("SWAPPING....")
                 with f_lock:
@@ -103,24 +105,27 @@ def job_swap():
                         if not read_max:
                             jqe = json.loads(l)
                             job_queue.put(jqe)
+                            i += 1
                         else:
                             if not os.path.exists(swap_file + '.new'):
                                 nswph = open(swap_file + '.new', 'w')
                             nswph.write(l)
-                        i += 1
+                            new_size += 1
                         if i >= (int((JQ_CEILING - JQ_FLOOR)/2)):
                             read_max = True
                     done = True
                     swph.close()
-                    print("SWAP DONE READING")
+                    print("SWAP DONE READING: " + str(i))
                     if read_max:
                         nswph.close()
                         shutil.copyfile(swap_file + '.new', swap_file)
                         os.remove(swap_file + '.new')
-                        backlog = AtomicCounter()
+                        backlog = AtomicCounter(new_size)
+                        print("NEW SWAP FILE: " + str(backlog.value))
                     else:
+                        print("NO MORE SWAPPING")
                         os.remove(swap_file)
-                        backlog.increment(-i)
+                        backlog = AtomicCounter()
                         bl_flag = False
             print("SWAP_DONE!")
 
@@ -454,7 +459,7 @@ if __name__ == "__main__":
     threading.Thread(name='walk_tree', target=walk_tree, args=(addr_list, job, criteria)).start()
     print("Waiting for Jobs to Queue")
     time.sleep(20)
-    while not job_queue.empty() or len(running_threads) > 0:
+    while not job_queue.empty() or len(running_threads) > 0 or bl_flag:
         if not job_queue.empty() and len(running_threads) < max_threads:
 #            if JQ_CEILING and job_queue.qsize() > JQ_CEILING:
 #                while len(running_threads) > int(max_threads/2):
@@ -470,6 +475,7 @@ if __name__ == "__main__":
         else:
             if len(running_threads) > 1:
                 print("Waiting for " + str(len(running_threads)) + " threads to complete")
+                print("BL: " + str(bl_flag))
             else:
                 print ("Waiting for 1 thread to complete: " + str(running_threads))
             time.sleep(10)
