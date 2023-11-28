@@ -493,7 +493,7 @@ if __name__ == "__main__":
             rfh = open(p, "r")
             for l in rfh:
                 if not l.startswith('#'):
-                    oprint(l, ofh)
+                    oprint(l.rstrip(), ofh)
             rfh.close()
             os.remove(p)
         ofh.close()
