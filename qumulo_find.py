@@ -131,7 +131,15 @@ def job_swap():
 
 def qumulo_get(addr, api):
     dprint("API_GET: " + api)
-    res= requests.get('https://' + addr + '/api' + api, headers=auth, verify=False, timeout=timeout)
+    good = False
+    while not good:
+        good = True
+        try:
+            res = requests.get('https://' + addr + '/api' + api, headers=auth, verify=False, timeout=timeout)
+        except requests.exceptions.ConnectionError:
+            print("Connection Error: Retrying..")
+            time.sleep(5)
+            good = False
     if res.status_code == 200:
         results = json.loads(res.content.decode('utf-8'))
 #        pp.pprint("RES [" + api + " ] : " + str(results))
