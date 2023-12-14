@@ -111,7 +111,7 @@ def job_swap():
                                 nswph = open(swap_file + '.new', 'w')
                             nswph.write(l)
                             new_size += 1
-                        if i >= (int((JQ_CEILING - JQ_FLOOR)/2)) or (i >= 50000):
+                        if i >= (int((JQ_CEILING - JQ_FLOOR)/2)) or (i >= 10000):
                             read_max = True
                     done = True
                     swph.close()
