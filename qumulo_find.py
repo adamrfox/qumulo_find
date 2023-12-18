@@ -107,7 +107,6 @@ def job_swap():
                             job_queue.put(jqe)
                             i += 1
                         else:
-                            print("SWAP RM: " + str(i))
                             if not os.path.exists(swap_file + '.new'):
                                 nswph = open(swap_file + '.new', 'w')
                             nswph.write(l)
