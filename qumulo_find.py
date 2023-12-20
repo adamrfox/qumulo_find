@@ -477,6 +477,10 @@ if __name__ == "__main__":
             job = job_queue.get()
             dprint("START: " + str(job))
             threading.Thread(name=job['path'], target=walk_tree, args=(addr_list, job, criteria)).start()
+            try:
+                job_queue.task_done()
+            except ValueError:
+                pass
         elif not job_queue.empty():
             time.sleep(10)
             print("\nQueue: " + str(job_queue.qsize()))
